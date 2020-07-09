@@ -13,6 +13,7 @@ import (
 	dsq "github.com/ipfs/go-datastore/query"
 	logger "github.com/ipfs/go-log/v2"
 	goprocess "github.com/jbenet/goprocess"
+	"go.uber.org/zap"
 )
 
 var log = logger.Logger("badger")
@@ -132,7 +133,10 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 
 	opt.Dir = path
 	opt.ValueDir = path
-	opt.Logger = log
+	opt.Logger = &compatLogger{
+		SugaredLogger: *log.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
+		skipLogger:    *log.Desugar().WithOptions(zap.AddCallerSkip(2)).Sugar(),
+	}
 
 	kv, err := badger.Open(opt)
 	if err != nil {
