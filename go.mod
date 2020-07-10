@@ -5,7 +5,7 @@ require (
 	github.com/ipfs/go-datastore v0.4.4
 	github.com/ipfs/go-log/v2 v2.0.8
 	github.com/jbenet/goprocess v0.1.4
-	go.uber.org/zap v1.14.1
+	go.uber.org/zap v1.15.0
 )
 
 go 1.12
