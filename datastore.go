@@ -73,7 +73,7 @@ func init() {
 		GcDiscardRatio: 0.2,
 		GcInterval:     15 * time.Minute,
 		GcSleep:        10 * time.Second,
-		Options:        badger.LSMOnlyOptions(""),
+		Options:        badger.DefaultOptions(""),
 	}
 	// This is to optimize the database on close so it can be opened
 	// read-only and efficiently queried. We don't do that and hanging on
