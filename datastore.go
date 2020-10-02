@@ -114,7 +114,7 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 	var gcSleep time.Duration
 	var gcInterval time.Duration
 	if options == nil {
-		opt = badger.DefaultOptions("")
+		opt = DefaultOptions.Options
 		gcDiscardRatio = DefaultOptions.GcDiscardRatio
 		gcSleep = DefaultOptions.GcSleep
 		gcInterval = DefaultOptions.GcInterval
