@@ -73,7 +73,7 @@ func init() {
 		GcDiscardRatio: 0.2,
 		GcInterval:     15 * time.Minute,
 		GcSleep:        10 * time.Second,
-		Options:        badger.LSMOnlyOptions(""),
+		Options:        badger.DefaultOptions(""),
 	}
 	// This is to optimize the database on close so it can be opened
 	// read-only and efficiently queried. We don't do that and hanging on
@@ -114,7 +114,7 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 	var gcSleep time.Duration
 	var gcInterval time.Duration
 	if options == nil {
-		opt = badger.DefaultOptions("")
+		opt = DefaultOptions.Options
 		gcDiscardRatio = DefaultOptions.GcDiscardRatio
 		gcSleep = DefaultOptions.GcSleep
 		gcInterval = DefaultOptions.GcInterval
