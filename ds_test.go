@@ -2,6 +2,7 @@ package badger
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -546,7 +547,7 @@ func TestDiskUsage(t *testing.T) {
 		t.Fatal(err)
 	}
 	s, _ := d.DiskUsage()
-	if s <= 0 {
+	if s == 0 {
 		t.Error("expected some size")
 	}
 	d.Close()
@@ -714,6 +715,22 @@ func TestTTL(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// set ttl
+	txn, err = d.NewTransaction(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key := range data {
+		err := txn.(ds.TTL).SetTTL(key, time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	err = txn.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	txn, err = d.NewTransaction(true)
 	if err != nil {
 		t.Fatal(err)
@@ -820,6 +837,177 @@ func TestExpirations(t *testing.T) {
 
 	if _, err := d.GetExpiration(ds.NewKey("/foo/bar")); err != ds.ErrNotFound {
 		t.Fatalf("wrong error type: %v", err)
+	}
+}
+
+func TestOptions(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := DefaultOptions
+	opts.GcSleep = 0
+	opts.GcInterval = time.Second
+	d, err := NewDatastore(path, &opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if d.gcSleep != d.gcInterval {
+		t.Fatal("expected gcSleep=0 to get set to gcInterval")
+	}
+}
+
+func TestClosedError(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := NewDatastore(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dstx, err := d.NewTransaction(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := dstx.(*txn)
+
+	err = d.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.RemoveAll(path)
+
+	key := ds.NewKey("/a/b/c")
+	errMsg := "expected ErrClosed, actual:"
+
+	_, err = d.NewTransaction(false)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = d.Put(key, nil)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = d.Sync(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = d.PutWithTTL(key, nil, time.Second)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = d.SetTTL(key, time.Second)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = d.GetExpiration(ds.Key{})
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = d.Get(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = d.Has(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = d.GetSize(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = d.Query(dsq.Query{})
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = d.DiskUsage()
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = d.Close()
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = d.CollectGarbage()
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	d.gcInterval = time.Millisecond
+	d.periodicGC()
+
+	err = tx.Put(key, nil)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = tx.Sync(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = tx.PutWithTTL(key, nil, time.Second)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = tx.GetExpiration(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = tx.SetTTL(key, time.Second)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = tx.Get(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = tx.Has(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = tx.GetSize(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = tx.Delete(key)
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	_, err = tx.Query(dsq.Query{})
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = tx.Commit()
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
+	}
+
+	err = tx.Close()
+	if !errors.Is(err, ErrClosed) {
+		t.Error(errMsg, err)
 	}
 }
 
