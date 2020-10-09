@@ -336,7 +336,7 @@ func TestBatchingRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	var puts int
-	for {
+	for ; puts < 10000000; puts++ {
 		buf := make([]byte, valSize)
 		rand.Read(buf)
 		err = tx.Put(ds.NewKey(fmt.Sprintf("/key%d", puts)), buf)
