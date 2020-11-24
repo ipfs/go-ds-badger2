@@ -140,8 +140,12 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 		gcSleep = gcInterval
 	}
 
-	opt.Dir = path
-	opt.ValueDir = path
+	// Do not set directories when InMemory is true
+	if !opt.InMemory {
+		opt.Dir = path
+		opt.ValueDir = path
+	}
+
 	opt.Logger = &compatLogger{
 		SugaredLogger: *log.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar(),
 		skipLogger:    *log.Desugar().WithOptions(zap.AddCallerSkip(2)).Sugar(),
