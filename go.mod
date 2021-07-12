@@ -6,7 +6,7 @@ require (
 	github.com/ipfs/go-detect-race v0.0.1
 	github.com/ipfs/go-log/v2 v2.1.1
 	github.com/jbenet/goprocess v0.1.4
-	go.uber.org/zap v1.16.0
+	go.uber.org/zap v1.18.1
 )
 
 go 1.15
