@@ -952,7 +952,12 @@ func TestClosedError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := NewDatastore(path, nil)
+	opts := DefaultOptions
+
+	// we manually GC in this test and don't want it to run in the background.
+	opts.GcInterval = 0
+
+	d, err := NewDatastore(path, &opts)
 	if err != nil {
 		t.Fatal(err)
 	}
