@@ -14,6 +14,7 @@ import (
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
 	dstest "github.com/ipfs/go-datastore/test"
+	detectrace "github.com/ipfs/go-detect-race"
 )
 
 var testcases = map[string]string{
@@ -765,6 +766,10 @@ func TestTxnBatch(t *testing.T) {
 }
 
 func TestTTL(t *testing.T) {
+	if detectrace.WithRace() {
+		t.Skip("disabling timing dependent test while race detector is enabled")
+	}
+
 	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
