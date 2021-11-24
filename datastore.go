@@ -72,8 +72,8 @@ type Options struct {
 	// GcInterval.
 	GcSleep time.Duration
 
-	// TTL sets the expiration time for all newly added blocks. After expiration,
-	// the blocks will no longer be retrievable and will be removed by garbage
+	// TTL sets the expiration time for all newly added keys. After expiration,
+	// the keys will no longer be retrievable and will be removed by garbage
 	// collection.
 	//
 	// The default value is 0, which means no TTL.
@@ -125,8 +125,8 @@ func (opt Options) WithGcSleep(sleep time.Duration) Options {
 
 // WithTTL returns a new Options value with TTL set to the given value.
 //
-// TTL sets the expiration time for all newly added blocks. After expiration,
-// the blocks will no longer be retrievable and will be removed by garbage
+// TTL sets the expiration time for all newly added keys. After expiration,
+// the keys will no longer be retrievable and will be removed by garbage
 // collection.
 //
 // Default value is 0, which means no TTL.
