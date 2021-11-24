@@ -37,15 +37,15 @@ var testcases = map[string]string{
 // returns datastore, and a function to call on exit.
 // (this garbage collects). So:
 //
-//  d, close := newDS(t)
+//  d, close := newDS(t, nil)
 //  defer close()
-func newDS(t *testing.T) (*Datastore, func()) {
+func newDS(t *testing.T, opts *Options) (*Datastore, func()) {
 	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	d, err := NewDatastore(path, nil)
+	d, err := NewDatastore(path, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func addTestCases(t *testing.T, d *Datastore, testcases map[string]string) {
 	}
 }
 func TestQuery(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	addTestCases(t, d, testcases)
@@ -107,7 +107,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestHas(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -131,7 +131,7 @@ func TestHas(t *testing.T) {
 }
 
 func TestGetSize(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -151,7 +151,7 @@ func TestGetSize(t *testing.T) {
 }
 
 func TestNotExistGet(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -178,7 +178,7 @@ func TestNotExistGet(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -205,7 +205,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestGetEmpty(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	err := d.Put(bg, ds.NewKey("/a"), []byte{})
@@ -246,7 +246,7 @@ func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
 }
 
 func TestBatching(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	b, err := d.Batch(bg)
@@ -341,18 +341,9 @@ func TestBatching(t *testing.T) {
 
 	// Test with TTL
 
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(path)
-
 	opts := DefaultOpts().WithTTL(time.Second)
-	d, err = NewDatastore(path, &opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer d.Close()
+	d, done = newDS(t, &opts)
+	defer done()
 
 	b, err = d.Batch()
 	if err != nil {
@@ -465,7 +456,7 @@ func TestBatchingRequired(t *testing.T) {
 // Tests from basic_tests from go-datastore
 
 func TestBasicPutGet(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	k := ds.NewKey("foo")
@@ -519,7 +510,7 @@ func TestBasicPutGet(t *testing.T) {
 }
 
 func TestNotFounds(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	badk := ds.NewKey("notreal")
@@ -543,7 +534,7 @@ func TestNotFounds(t *testing.T) {
 }
 
 func TestManyKeysAndQuery(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	var keys []ds.Key
@@ -624,7 +615,7 @@ func TestManyKeysAndQuery(t *testing.T) {
 }
 
 func TestGC(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	count := 10000
@@ -917,7 +908,7 @@ func TestTTL(t *testing.T) {
 func TestExpirations(t *testing.T) {
 	var err error
 
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	txn, err := d.NewTransaction(bg, false)
@@ -1004,6 +995,7 @@ func TestOptions(t *testing.T) {
 	opts := DefaultOptions
 	opts.GcSleep = 0
 	opts.GcInterval = time.Second
+	opts.TTL = time.Minute
 	d, err := NewDatastore(path, &opts)
 	if err != nil {
 		t.Fatal(err)
@@ -1011,6 +1003,10 @@ func TestOptions(t *testing.T) {
 
 	if d.gcSleep != d.gcInterval {
 		t.Fatal("expected gcSleep=0 to get set to gcInterval")
+	}
+
+	if d.ttl != time.Minute {
+		t.Fatal("datastore ttl not set")
 	}
 
 	ratio := 0.5
@@ -1188,14 +1184,9 @@ func TestClosedError(t *testing.T) {
 }
 
 func TestDefaultTTL(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
-	assert.NoError(t, err)
-	defer os.RemoveAll(path)
-
 	opts := DefaultOpts().WithTTL(time.Second)
-	d, err := NewDatastore(path, &opts)
-	assert.NoError(t, err)
-	defer d.Close()
+	d, done := newDS(t, &opts)
+	defer done()
 
 	data1 := make(map[ds.Key][]byte)
 	data2 := make(map[ds.Key][]byte)
@@ -1211,7 +1202,7 @@ func TestDefaultTTL(t *testing.T) {
 
 	// put directly into datastore
 	for key, bytes := range data1 {
-		err = d.Put(key, bytes)
+		err := d.Put(key, bytes)
 		assert.NoError(t, err)
 	}
 
@@ -1257,7 +1248,7 @@ func TestDefaultTTL(t *testing.T) {
 }
 
 func TestSuite(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	dstest.SubtestAll(t, d)
