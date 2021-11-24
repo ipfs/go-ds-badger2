@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
 	dstest "github.com/ipfs/go-datastore/test"
@@ -335,6 +337,63 @@ func TestBatching(t *testing.T) {
 	_, err = d.Get(bg, ds.NewKey(key))
 	if err == nil {
 		t.Fatal("expected error trying to get uncommitted data")
+	}
+
+	// Test with TTL
+
+	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(path)
+
+	opts := DefaultOpts().WithTTL(time.Second)
+	d, err = NewDatastore(path, &opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+
+	b, err = d.Batch()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range testcases {
+		err := b.Put(ds.NewKey(k), []byte(v))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err = b.Commit()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check data was set correctly
+	for k, v := range testcases {
+		val, err := d.Get(ds.NewKey(k))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if v != string(val) {
+			t.Fatal("got wrong data!")
+		}
+	}
+
+	time.Sleep(time.Second)
+
+	// check data has expired
+	for k := range testcases {
+		has, err := d.Has(ds.NewKey(k))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if has {
+			t.Fatal("record with ttl did not expire")
+		}
 	}
 }
 
@@ -953,6 +1012,21 @@ func TestOptions(t *testing.T) {
 	if d.gcSleep != d.gcInterval {
 		t.Fatal("expected gcSleep=0 to get set to gcInterval")
 	}
+
+	ratio := 0.5
+	interval := 2 * time.Second
+	sleep := 3 * time.Second
+	ttl := 4 * time.Second
+	o := DefaultOpts().
+		WithGcDiscardRatio(ratio).
+		WithGcInterval(interval).
+		WithGcSleep(sleep).
+		WithTTL(ttl)
+
+	assert.Equal(t, ratio, o.GcDiscardRatio)
+	assert.Equal(t, interval, o.GcInterval)
+	assert.Equal(t, sleep, o.GcSleep)
+	assert.Equal(t, ttl, o.TTL)
 }
 
 func TestClosedError(t *testing.T) {
@@ -1110,6 +1184,75 @@ func TestClosedError(t *testing.T) {
 	err = tx.Close()
 	if !errors.Is(err, ErrClosed) {
 		t.Error(errMsg, err)
+	}
+}
+
+func TestDefaultTTL(t *testing.T) {
+	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	assert.NoError(t, err)
+	defer os.RemoveAll(path)
+
+	opts := DefaultOpts().WithTTL(time.Second)
+	d, err := NewDatastore(path, &opts)
+	assert.NoError(t, err)
+	defer d.Close()
+
+	data1 := make(map[ds.Key][]byte)
+	data2 := make(map[ds.Key][]byte)
+	for i := 0; i < 10; i++ {
+		key1 := ds.NewKey(fmt.Sprintf("/test1/%d", i))
+		key2 := ds.NewKey(fmt.Sprintf("/test2/%d", i))
+		bytes := make([]byte, 16)
+		_, err := rand.Read(bytes)
+		assert.NoError(t, err)
+		data1[key1] = bytes
+		data2[key2] = bytes
+	}
+
+	// put directly into datastore
+	for key, bytes := range data1 {
+		err = d.Put(key, bytes)
+		assert.NoError(t, err)
+	}
+
+	// put via transactions
+	for key, bytes := range data2 {
+		tx, err := d.NewTransaction(false)
+		assert.NoError(t, err)
+
+		err = tx.Put(key, bytes)
+		assert.NoError(t, err)
+
+		err = tx.Commit()
+		assert.NoError(t, err)
+	}
+
+	// check data was persisted
+	for key := range data1 {
+		has, err := d.Has(key)
+		assert.NoError(t, err)
+		assert.True(t, has, "record not in db")
+	}
+	for key := range data2 {
+		has, err := d.Has(key)
+		assert.NoError(t, err)
+		assert.True(t, has, "record not in db")
+	}
+
+	time.Sleep(time.Second)
+
+	// check datastore data has expired
+	for key := range data1 {
+		has, err := d.Has(key)
+		assert.NoError(t, err)
+		assert.False(t, has, "record with ttl did not expire")
+	}
+
+	// check txn data has expired
+	for key := range data2 {
+		has, err := d.Has(key)
+		assert.NoError(t, err)
+		assert.False(t, has, "record with ttl did not expire")
 	}
 }
 
