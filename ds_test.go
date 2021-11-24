@@ -341,7 +341,7 @@ func TestBatching(t *testing.T) {
 
 	// Test with TTL
 
-	opts := DefaultOpts().WithTTL(time.Second)
+	opts := DefaultOptions.WithTTL(time.Second)
 	d, done = newDS(t, &opts)
 	defer done()
 
@@ -1013,16 +1013,19 @@ func TestOptions(t *testing.T) {
 	interval := 2 * time.Second
 	sleep := 3 * time.Second
 	ttl := 4 * time.Second
-	o := DefaultOpts().
+	o := DefaultOptions.
+		WithTTL(ttl).
 		WithGcDiscardRatio(ratio).
 		WithGcInterval(interval).
-		WithGcSleep(sleep).
-		WithTTL(ttl)
+		WithGcSleep(sleep)
 
+	assert.Equal(t, ttl, o.TTL)
 	assert.Equal(t, ratio, o.GcDiscardRatio)
 	assert.Equal(t, interval, o.GcInterval)
 	assert.Equal(t, sleep, o.GcSleep)
-	assert.Equal(t, ttl, o.TTL)
+
+	// Make sure DefaultOptions aren't changed
+	assert.Equal(t, time.Duration(0), DefaultOptions.TTL)
 }
 
 func TestClosedError(t *testing.T) {
@@ -1184,7 +1187,7 @@ func TestClosedError(t *testing.T) {
 }
 
 func TestDefaultTTL(t *testing.T) {
-	opts := DefaultOpts().WithTTL(time.Second)
+	opts := DefaultOptions.WithTTL(time.Second)
 	d, done := newDS(t, &opts)
 	defer done()
 

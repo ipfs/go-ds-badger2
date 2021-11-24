@@ -85,11 +85,6 @@ type Options struct {
 // DefaultOptions are the default options for the badger datastore.
 var DefaultOptions Options
 
-func DefaultOpts() Options {
-	opts := DefaultOptions
-	return opts
-}
-
 // WithGcDiscardRatio returns a new Options value with GcDiscardRatio set to the given value.
 //
 // Please refer to the Badger docs to see what this is for
