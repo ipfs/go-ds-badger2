@@ -345,26 +345,26 @@ func TestBatching(t *testing.T) {
 	d, done = newDS(t, &opts)
 	defer done()
 
-	b, err = d.Batch()
+	b, err = d.Batch(bg)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for k, v := range testcases {
-		err := b.Put(ds.NewKey(k), []byte(v))
+		err := b.Put(bg, ds.NewKey(k), []byte(v))
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	err = b.Commit()
+	err = b.Commit(bg)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// check data was set correctly
 	for k, v := range testcases {
-		val, err := d.Get(ds.NewKey(k))
+		val, err := d.Get(bg, ds.NewKey(k))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -378,7 +378,7 @@ func TestBatching(t *testing.T) {
 
 	// check data has expired
 	for k := range testcases {
-		has, err := d.Has(ds.NewKey(k))
+		has, err := d.Has(bg, ds.NewKey(k))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1202,30 +1202,30 @@ func TestDefaultTTL(t *testing.T) {
 
 	// put directly into datastore
 	for key, bytes := range data1 {
-		err := d.Put(key, bytes)
+		err := d.Put(bg, key, bytes)
 		assert.NoError(t, err)
 	}
 
 	// put via transactions
 	for key, bytes := range data2 {
-		tx, err := d.NewTransaction(false)
+		tx, err := d.NewTransaction(bg, false)
 		assert.NoError(t, err)
 
-		err = tx.Put(key, bytes)
+		err = tx.Put(bg, key, bytes)
 		assert.NoError(t, err)
 
-		err = tx.Commit()
+		err = tx.Commit(bg)
 		assert.NoError(t, err)
 	}
 
 	// check data was persisted
 	for key := range data1 {
-		has, err := d.Has(key)
+		has, err := d.Has(bg, key)
 		assert.NoError(t, err)
 		assert.True(t, has, "record not in db")
 	}
 	for key := range data2 {
-		has, err := d.Has(key)
+		has, err := d.Has(bg, key)
 		assert.NoError(t, err)
 		assert.True(t, has, "record not in db")
 	}
@@ -1234,14 +1234,14 @@ func TestDefaultTTL(t *testing.T) {
 
 	// check datastore data has expired
 	for key := range data1 {
-		has, err := d.Has(key)
+		has, err := d.Has(bg, key)
 		assert.NoError(t, err)
 		assert.False(t, has, "record with ttl did not expire")
 	}
 
 	// check txn data has expired
 	for key := range data2 {
-		has, err := d.Has(key)
+		has, err := d.Has(bg, key)
 		assert.NoError(t, err)
 		assert.False(t, has, "record with ttl did not expire")
 	}
