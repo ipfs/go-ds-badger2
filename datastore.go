@@ -35,6 +35,7 @@ type Datastore struct {
 	gcInterval     time.Duration
 
 	syncWrites bool
+	ttl        time.Duration
 }
 
 // Implements the datastore.Batch interface, enabling batching support for
@@ -71,11 +72,63 @@ type Options struct {
 	// GcInterval.
 	GcSleep time.Duration
 
+	// TTL sets the expiration time for all newly added keys. After expiration,
+	// the keys will no longer be retrievable and will be removed by garbage
+	// collection.
+	//
+	// The default value is 0, which means no TTL.
+	TTL time.Duration
+
 	badger.Options
 }
 
 // DefaultOptions are the default options for the badger datastore.
 var DefaultOptions Options
+
+// WithGcDiscardRatio returns a new Options value with GcDiscardRatio set to the given value.
+//
+// Please refer to the Badger docs to see what this is for
+//
+// Default value is 0.2
+func (opt Options) WithGcDiscardRatio(ratio float64) Options {
+	opt.GcDiscardRatio = ratio
+	return opt
+}
+
+// WithGcInterval returns a new Options value with GcInterval set to the given
+// value.
+//
+// GcInterval specifies the interval between garbage collection cycles. If zero,
+// the datastore will perform no automatic garbage collection.
+//
+// Default value is 15 minutes.
+func (opt Options) WithGcInterval(interval time.Duration) Options {
+	opt.GcInterval = interval
+	return opt
+}
+
+// WithGcSleep returns a new Options value with GcSleep set to the given value.
+//
+// GcSleep specifies the sleep time between rounds of a single garbage collection
+// cycle. If zero, the datastore will only perform one round of GC per GcInterval.
+//
+// Default value is 10 seconds.
+func (opt Options) WithGcSleep(sleep time.Duration) Options {
+	opt.GcSleep = sleep
+	return opt
+}
+
+// WithTTL returns a new Options value with TTL set to the given value.
+//
+// TTL sets the expiration time for all newly added keys. After expiration,
+// the keys will no longer be retrievable and will be removed by garbage
+// collection.
+//
+// Default value is 0, which means no TTL.
+func (opt Options) WithTTL(ttl time.Duration) Options {
+	opt.TTL = ttl
+	return opt
+}
 
 func init() {
 	DefaultOptions = Options{
@@ -123,16 +176,19 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 	var gcDiscardRatio float64
 	var gcSleep time.Duration
 	var gcInterval time.Duration
+	var ttl time.Duration
 	if options == nil {
 		opt = DefaultOptions.Options
 		gcDiscardRatio = DefaultOptions.GcDiscardRatio
 		gcSleep = DefaultOptions.GcSleep
 		gcInterval = DefaultOptions.GcInterval
+		ttl = DefaultOptions.TTL
 	} else {
 		opt = options.Options
 		gcDiscardRatio = options.GcDiscardRatio
 		gcSleep = options.GcSleep
 		gcInterval = options.GcInterval
+		ttl = options.TTL
 	}
 
 	if gcSleep <= 0 {
@@ -163,6 +219,7 @@ func NewDatastore(path string, options *Options) (*Datastore, error) {
 		gcSleep:        gcSleep,
 		gcInterval:     gcInterval,
 		syncWrites:     opt.SyncWrites,
+		ttl:            ttl,
 	}
 
 	// Start the GC process if requested.
@@ -231,8 +288,14 @@ func (d *Datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 	txn := d.newImplicitTransaction(false)
 	defer txn.discard()
 
-	if err := txn.put(key, value); err != nil {
-		return err
+	if d.ttl > 0 {
+		if err := txn.putWithTTL(key, value, d.ttl); err != nil {
+			return err
+		}
+	} else {
+		if err := txn.put(key, value); err != nil {
+			return err
+		}
 	}
 
 	return txn.commit()
@@ -443,11 +506,20 @@ func (b *batch) Put(ctx context.Context, key ds.Key, value []byte) error {
 	if b.ds.closed {
 		return ErrClosed
 	}
+
+	if b.ds.ttl > 0 {
+		return b.putWithTTL(key, value, b.ds.ttl)
+	}
+
 	return b.put(key, value)
 }
 
 func (b *batch) put(key ds.Key, value []byte) error {
 	return b.writeBatch.Set(key.Bytes(), value)
+}
+
+func (b *batch) putWithTTL(key ds.Key, value []byte, ttl time.Duration) error {
+	return b.writeBatch.SetEntry(badger.NewEntry(key.Bytes(), value).WithTTL(ttl))
 }
 
 func (b *batch) Delete(ctx context.Context, key ds.Key) error {
@@ -510,6 +582,11 @@ func (t *txn) Put(ctx context.Context, key ds.Key, value []byte) error {
 	if t.ds.closed {
 		return ErrClosed
 	}
+
+	if t.ds.ttl > 0 {
+		return t.putWithTTL(key, value, t.ds.ttl)
+	}
+
 	return t.put(key, value)
 }
 

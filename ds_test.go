@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	ds "github.com/ipfs/go-datastore"
 	dsq "github.com/ipfs/go-datastore/query"
 	dstest "github.com/ipfs/go-datastore/test"
@@ -35,15 +37,15 @@ var testcases = map[string]string{
 // returns datastore, and a function to call on exit.
 // (this garbage collects). So:
 //
-//  d, close := newDS(t)
+//  d, close := newDS(t, nil)
 //  defer close()
-func newDS(t *testing.T) (*Datastore, func()) {
+func newDS(t *testing.T, opts *Options) (*Datastore, func()) {
 	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	d, err := NewDatastore(path, nil)
+	d, err := NewDatastore(path, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +75,7 @@ func addTestCases(t *testing.T, d *Datastore, testcases map[string]string) {
 	}
 }
 func TestQuery(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	addTestCases(t, d, testcases)
@@ -105,7 +107,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestHas(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -129,7 +131,7 @@ func TestHas(t *testing.T) {
 }
 
 func TestGetSize(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -149,7 +151,7 @@ func TestGetSize(t *testing.T) {
 }
 
 func TestNotExistGet(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -176,7 +178,7 @@ func TestNotExistGet(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 	addTestCases(t, d, testcases)
 
@@ -203,7 +205,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestGetEmpty(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	err := d.Put(bg, ds.NewKey("/a"), []byte{})
@@ -244,7 +246,7 @@ func expectMatches(t *testing.T, expect []string, actualR dsq.Results) {
 }
 
 func TestBatching(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	b, err := d.Batch(bg)
@@ -336,6 +338,54 @@ func TestBatching(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error trying to get uncommitted data")
 	}
+
+	// Test with TTL
+
+	opts := DefaultOptions.WithTTL(time.Second)
+	d, done = newDS(t, &opts)
+	defer done()
+
+	b, err = d.Batch(bg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range testcases {
+		err := b.Put(bg, ds.NewKey(k), []byte(v))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err = b.Commit(bg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check data was set correctly
+	for k, v := range testcases {
+		val, err := d.Get(bg, ds.NewKey(k))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if v != string(val) {
+			t.Fatal("got wrong data!")
+		}
+	}
+
+	time.Sleep(time.Second)
+
+	// check data has expired
+	for k := range testcases {
+		has, err := d.Has(bg, ds.NewKey(k))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if has {
+			t.Fatal("record with ttl did not expire")
+		}
+	}
 }
 
 func TestBatchingRequired(t *testing.T) {
@@ -406,7 +456,7 @@ func TestBatchingRequired(t *testing.T) {
 // Tests from basic_tests from go-datastore
 
 func TestBasicPutGet(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	k := ds.NewKey("foo")
@@ -460,7 +510,7 @@ func TestBasicPutGet(t *testing.T) {
 }
 
 func TestNotFounds(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	badk := ds.NewKey("notreal")
@@ -484,7 +534,7 @@ func TestNotFounds(t *testing.T) {
 }
 
 func TestManyKeysAndQuery(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	var keys []ds.Key
@@ -565,7 +615,7 @@ func TestManyKeysAndQuery(t *testing.T) {
 }
 
 func TestGC(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	count := 10000
@@ -858,7 +908,7 @@ func TestTTL(t *testing.T) {
 func TestExpirations(t *testing.T) {
 	var err error
 
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	txn, err := d.NewTransaction(bg, false)
@@ -945,6 +995,7 @@ func TestOptions(t *testing.T) {
 	opts := DefaultOptions
 	opts.GcSleep = 0
 	opts.GcInterval = time.Second
+	opts.TTL = time.Minute
 	d, err := NewDatastore(path, &opts)
 	if err != nil {
 		t.Fatal(err)
@@ -953,6 +1004,28 @@ func TestOptions(t *testing.T) {
 	if d.gcSleep != d.gcInterval {
 		t.Fatal("expected gcSleep=0 to get set to gcInterval")
 	}
+
+	if d.ttl != time.Minute {
+		t.Fatal("datastore ttl not set")
+	}
+
+	ratio := 0.5
+	interval := 2 * time.Second
+	sleep := 3 * time.Second
+	ttl := 4 * time.Second
+	o := DefaultOptions.
+		WithTTL(ttl).
+		WithGcDiscardRatio(ratio).
+		WithGcInterval(interval).
+		WithGcSleep(sleep)
+
+	assert.Equal(t, ttl, o.TTL)
+	assert.Equal(t, ratio, o.GcDiscardRatio)
+	assert.Equal(t, interval, o.GcInterval)
+	assert.Equal(t, sleep, o.GcSleep)
+
+	// Make sure DefaultOptions aren't changed
+	assert.Equal(t, time.Duration(0), DefaultOptions.TTL)
 }
 
 func TestClosedError(t *testing.T) {
@@ -1113,8 +1186,72 @@ func TestClosedError(t *testing.T) {
 	}
 }
 
+func TestDefaultTTL(t *testing.T) {
+	opts := DefaultOptions.WithTTL(time.Second)
+	d, done := newDS(t, &opts)
+	defer done()
+
+	data1 := make(map[ds.Key][]byte)
+	data2 := make(map[ds.Key][]byte)
+	for i := 0; i < 10; i++ {
+		key1 := ds.NewKey(fmt.Sprintf("/test1/%d", i))
+		key2 := ds.NewKey(fmt.Sprintf("/test2/%d", i))
+		bytes := make([]byte, 16)
+		_, err := rand.Read(bytes)
+		assert.NoError(t, err)
+		data1[key1] = bytes
+		data2[key2] = bytes
+	}
+
+	// put directly into datastore
+	for key, bytes := range data1 {
+		err := d.Put(bg, key, bytes)
+		assert.NoError(t, err)
+	}
+
+	// put via transactions
+	for key, bytes := range data2 {
+		tx, err := d.NewTransaction(bg, false)
+		assert.NoError(t, err)
+
+		err = tx.Put(bg, key, bytes)
+		assert.NoError(t, err)
+
+		err = tx.Commit(bg)
+		assert.NoError(t, err)
+	}
+
+	// check data was persisted
+	for key := range data1 {
+		has, err := d.Has(bg, key)
+		assert.NoError(t, err)
+		assert.True(t, has, "record not in db")
+	}
+	for key := range data2 {
+		has, err := d.Has(bg, key)
+		assert.NoError(t, err)
+		assert.True(t, has, "record not in db")
+	}
+
+	time.Sleep(time.Second)
+
+	// check datastore data has expired
+	for key := range data1 {
+		has, err := d.Has(bg, key)
+		assert.NoError(t, err)
+		assert.False(t, has, "record with ttl did not expire")
+	}
+
+	// check txn data has expired
+	for key := range data2 {
+		has, err := d.Has(bg, key)
+		assert.NoError(t, err)
+		assert.False(t, has, "record with ttl did not expire")
+	}
+}
+
 func TestSuite(t *testing.T) {
-	d, done := newDS(t)
+	d, done := newDS(t, nil)
 	defer done()
 
 	dstest.SubtestAll(t, d)
