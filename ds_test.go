@@ -1207,6 +1207,11 @@ func TestDefaultTTL(t *testing.T) {
 	for key, bytes := range data1 {
 		err := d.Put(bg, key, bytes)
 		assert.NoError(t, err)
+
+		// check data was persisted
+		has, err := d.Has(bg, key)
+		assert.NoError(t, err)
+		assert.True(t, has, "record not in db")
 	}
 
 	// put via transactions
@@ -1219,15 +1224,8 @@ func TestDefaultTTL(t *testing.T) {
 
 		err = tx.Commit(bg)
 		assert.NoError(t, err)
-	}
 
-	// check data was persisted
-	for key := range data1 {
-		has, err := d.Has(bg, key)
-		assert.NoError(t, err)
-		assert.True(t, has, "record not in db")
-	}
-	for key := range data2 {
+		// check data was persisted
 		has, err := d.Has(bg, key)
 		assert.NoError(t, err)
 		assert.True(t, has, "record not in db")
