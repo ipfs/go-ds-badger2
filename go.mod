@@ -2,7 +2,7 @@ module github.com/ipfs/go-ds-badger2
 
 require (
 	github.com/dgraph-io/badger/v2 v2.2007.3
-	github.com/ipfs/go-datastore v0.5.0
+	github.com/ipfs/go-datastore v0.5.1
 	github.com/ipfs/go-detect-race v0.0.1
 	github.com/ipfs/go-log/v2 v2.5.0
 	github.com/jbenet/goprocess v0.1.4
