@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"sort"
@@ -37,10 +36,10 @@ var testcases = map[string]string{
 // returns datastore, and a function to call on exit.
 // (this garbage collects). So:
 //
-//  d, close := newDS(t, nil)
-//  defer close()
+//	d, close := newDS(t, nil)
+//	defer close()
 func newDS(t *testing.T, opts *Options) (*Datastore, func()) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +388,7 @@ func TestBatching(t *testing.T) {
 }
 
 func TestBatchingRequired(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -668,7 +667,7 @@ func TestGC(t *testing.T) {
 // this interval is not configurable, we re-open the database
 // (the size is always calculated on Open) to make things quick.
 func TestDiskUsage(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -697,7 +696,7 @@ func TestDiskUsage(t *testing.T) {
 }
 
 func TestTxnDiscard(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -730,7 +729,7 @@ func TestTxnDiscard(t *testing.T) {
 }
 
 func TestTxnCommit(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -765,7 +764,7 @@ func TestTxnCommit(t *testing.T) {
 }
 
 func TestTxnBatch(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -823,7 +822,7 @@ func TestTTL(t *testing.T) {
 		t.Skip("disabling timing dependent test while race detector is enabled")
 	}
 
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -988,7 +987,7 @@ func TestExpirations(t *testing.T) {
 }
 
 func TestOptions(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1029,7 +1028,7 @@ func TestOptions(t *testing.T) {
 }
 
 func TestClosedError(t *testing.T) {
-	path, err := ioutil.TempDir(os.TempDir(), "testing_badger_")
+	path, err := os.MkdirTemp(os.TempDir(), "testing_badger_")
 	if err != nil {
 		t.Fatal(err)
 	}
