@@ -87,7 +87,7 @@ var DefaultOptions Options
 
 // WithGcDiscardRatio returns a new Options value with GcDiscardRatio set to the given value.
 //
-// Please refer to the Badger docs to see what this is for
+// # Please refer to the Badger docs to see what this is for
 //
 // Default value is 0.2
 func (opt Options) WithGcDiscardRatio(ratio float64) Options {
