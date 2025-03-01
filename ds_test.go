@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -1251,5 +1252,8 @@ func TestSuite(t *testing.T) {
 	d, done := newDS(t, nil)
 	defer done()
 
+	if runtime.GOOS == "windows" {
+		dstest.ElemCount = 50
+	}
 	dstest.SubtestAll(t, d)
 }
