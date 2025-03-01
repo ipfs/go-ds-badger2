@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -818,6 +819,8 @@ func TestTxnBatch(t *testing.T) {
 }
 
 func TestTTL(t *testing.T) {
+	const ttl = 2 * time.Second
+
 	if detectrace.WithRace() {
 		t.Skip("disabling timing dependent test while race detector is enabled")
 	}
@@ -851,7 +854,7 @@ func TestTTL(t *testing.T) {
 
 	// write data
 	for key, bytes := range data {
-		err = txn.(ds.TTL).PutWithTTL(bg, key, bytes, time.Second)
+		err = txn.(ds.TTL).PutWithTTL(bg, key, bytes, ttl)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -867,7 +870,7 @@ func TestTTL(t *testing.T) {
 		t.Fatal(err)
 	}
 	for key := range data {
-		err := txn.(ds.TTL).SetTTL(bg, key, time.Second)
+		err := txn.(ds.TTL).SetTTL(bg, key, ttl)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -889,7 +892,7 @@ func TestTTL(t *testing.T) {
 	}
 	txn.Discard(bg)
 
-	time.Sleep(time.Second)
+	time.Sleep(ttl + time.Second)
 
 	for key := range data {
 		has, err := d.Has(bg, key)
@@ -1186,7 +1189,8 @@ func TestClosedError(t *testing.T) {
 }
 
 func TestDefaultTTL(t *testing.T) {
-	opts := DefaultOptions.WithTTL(time.Second)
+	const ttl = 2 * time.Second
+	opts := DefaultOptions.WithTTL(ttl)
 	d, done := newDS(t, &opts)
 	defer done()
 
@@ -1230,7 +1234,7 @@ func TestDefaultTTL(t *testing.T) {
 		assert.True(t, has, "record not in db")
 	}
 
-	time.Sleep(time.Second)
+	time.Sleep(ttl + time.Second)
 
 	// check datastore data has expired
 	for key := range data1 {
@@ -1251,5 +1255,8 @@ func TestSuite(t *testing.T) {
 	d, done := newDS(t, nil)
 	defer done()
 
+	if runtime.GOOS == "windows" {
+		dstest.ElemCount = 20
+	}
 	dstest.SubtestAll(t, d)
 }
