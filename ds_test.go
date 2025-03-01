@@ -1189,7 +1189,8 @@ func TestClosedError(t *testing.T) {
 }
 
 func TestDefaultTTL(t *testing.T) {
-	opts := DefaultOptions.WithTTL(time.Second)
+	const ttl = 2 * time.Second
+	opts := DefaultOptions.WithTTL(ttl)
 	d, done := newDS(t, &opts)
 	defer done()
 
@@ -1233,7 +1234,7 @@ func TestDefaultTTL(t *testing.T) {
 		assert.True(t, has, "record not in db")
 	}
 
-	time.Sleep(time.Second)
+	time.Sleep(ttl + time.Second)
 
 	// check datastore data has expired
 	for key := range data1 {
