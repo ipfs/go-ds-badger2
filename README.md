@@ -1,4 +1,6 @@
-# go-ds-badger
+> ## ⚠️ This repo is no longer being maintained
+
+# go-ds-badger2
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://ipn.io)
 [![](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](http://ipfs.io/)
@@ -8,10 +10,6 @@
 [![Build Status](https://travis-ci.org/ipfs/go-ds-badger.svg?branch=master)](https://travis-ci.org/ipfs/go-ds-badger)
 
 > Datastore implementation using [badger](https://github.com/dgraph-io/badger) as backend.
-
-## Lead Maintainer
-
-[Jakub Sztandera](https://github.com/kubuxu)
 
 ## Table of Contents
 
